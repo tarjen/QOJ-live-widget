@@ -6,7 +6,7 @@
     <style>
         html, body {
             width: 1300px;
-            height: 320px;
+            height: 520px;
             margin: 0;
             padding: 0;
             background: transparent !important;
@@ -99,6 +99,59 @@ td.bad {
 td.success {
   background-color: rgba(224,255,224,1.000);
 }
+        .submissions-box {
+            width: 1280px;
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 6px;
+        }
+        .submissions {
+            width: 860px;
+            max-height: 245px;
+            overflow: hidden;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #fff;
+            background: rgba(0,0,0,0.88);
+            border: 2px solid rgba(255,255,255,0.8);
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+        .submissions-title {
+            font-size: 20px;
+            line-height: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .submission-row {
+            display: grid;
+            grid-template-columns: 58px 1fr 130px 100px 155px;
+            gap: 8px;
+            align-items: center;
+            min-height: 28px;
+            font-size: 18px;
+            line-height: 22px;
+            border-top: 1px solid rgba(255,255,255,0.18);
+        }
+        .submission-row:first-of-type {
+            border-top: 0;
+        }
+        .submission-cell {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .submission-result {
+            font-weight: 700;
+        }
+        .submission-result.accepted {
+            color: #8df58d;
+        }
+        .submission-result.failed {
+            color: #ff9a9a;
+        }
+        .submission-result.pending {
+            color: #ffe58a;
+        }
     </style>
 </head>
 <body>

@@ -23,3 +23,35 @@
     <div class="contest-name status-message">Waiting for standings</div>
     {% endif %}
 </div>
+<div class="submissions-box">
+    <div class="submissions">
+        <div class="submissions-title">Submissions</div>
+        {% if contest and contest.submissions and contest.submissions['items'] %}
+            {% for submission in contest.submissions['items'] %}
+            <div class="submission-row">
+                <div class="submission-cell">#{{ submission.id }}</div>
+                <div class="submission-cell">{{ submission.problem }}</div>
+                <div class="submission-cell submission-result {{ submission.class }}">{{ submission.result }}</div>
+                <div class="submission-cell">{{ submission.language }}</div>
+                <div class="submission-cell">{{ submission.time }}</div>
+            </div>
+            {% endfor %}
+        {% elif contest and contest.submissions and contest.submissions.error %}
+            <div class="submission-row">
+                <div class="submission-cell"></div>
+                <div class="submission-cell">{{ contest.submissions.error }}</div>
+                <div class="submission-cell"></div>
+                <div class="submission-cell"></div>
+                <div class="submission-cell"></div>
+            </div>
+        {% else %}
+            <div class="submission-row">
+                <div class="submission-cell"></div>
+                <div class="submission-cell">Waiting for submissions</div>
+                <div class="submission-cell"></div>
+                <div class="submission-cell"></div>
+                <div class="submission-cell"></div>
+            </div>
+        {% endif %}
+    </div>
+</div>
