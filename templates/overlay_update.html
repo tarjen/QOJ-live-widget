@@ -1,0 +1,25 @@
+<div class="overlay-box">
+    {% if contest and contest.name %}
+        <div class="contest-name">{{ contest.name }}</div>
+    {% else %}
+        <div class="contest-name">No Contest Selected</div>
+    {% endif %}
+</div>
+<div class="overlay-box">
+    {% if contest and contest.problems %}
+    <table>
+        <tr>
+            <td class="rank">#{{ contest.rank }}</td>
+            <td class="solved">{{ contest.solved }}</td>
+            <td class="penalty">{{ contest.penalty }}</td>
+            {% for problem in contest.problems %}
+                <td class="{{ problem.status }}" title="{{ problem.tag }}">{{ problem.index }}</td>
+            {% endfor %}
+        </tr>
+    </table>
+    {% elif contest and contest.error %}
+    <div class="contest-name status-message">{{ contest.error }}</div>
+    {% else %}
+    <div class="contest-name status-message">Waiting for standings</div>
+    {% endif %}
+</div>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Contest Overlay</title>
+    <style>
+        html, body {
+            width: 1300px;
+            height: 320px;
+            margin: 0;
+            padding: 0;
+            background: transparent !important;
+        }
+        body {
+            overflow: hidden;
+            background: transparent !important;
+        }
+        .overlay-box {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+            width: 1280px;
+            padding-bottom: 5px;
+        }
+        .contest-name {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 32px;
+            white-space: nowrap;
+            width: auto;
+            max-width: 800px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #fff;
+            background: rgba(0,0,0,0.9);
+            border-radius: 10px;
+            padding: 10px 20px;
+            margin-left: 24px;
+            text-align: center;
+            border: 2px solid #fff;
+        }
+        .clock {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 32px;
+            color: #fff;
+            background: rgba(0,0,0,0.9);
+            border-radius: 10px;
+            padding: 10px 20px;
+            margin-left: 24px;
+            text-align: center;
+        }
+        .status-message {
+            max-width: 1180px;
+            font-size: 24px;
+        }
+        IMG {
+  border:0
+}
+td {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 32px;
+    color: #000;
+    min-width: 42px;
+    height: 42px;
+    padding: 0 0px;
+    text-align: center;
+    vertical-align: middle;
+    background: rgba(0,0,0,0.35);
+    border: 2px solid rgba(255,255,255,0.2);
+}
+td.rank {
+    width: 64px;
+    color: #fff;
+    background-color: rgba(30, 144, 255, 0.8);
+}
+td.solved {
+    width: 64px;
+    color: #fff;
+    background-color: rgb(32, 139, 32, 0.8);
+}
+td.penalty {
+    width: 96px;
+    color: #fff;
+    background-color: rgba(200, 50, 50, 0.8);
+}
+td.stnd {
+background-color: #aaa;
+  color: #fff;
+}
+td.frost {
+  background-color: rgba(255,238,170,1.000);
+}
+td.opener {
+  background-color: rgba(176,255,176,1.000);
+}
+td.bad {
+  background-color: rgba(255,208,208,1.000);
+}
+td.success {
+  background-color: rgba(224,255,224,1.000);
+}
+    </style>
+</head>
+<body>
+    <script>
+        function calcTime() {
+            {% if contest and contest.start_time and contest.end_time %}
+                const startTime = new Date("{{ contest.start_time }}");
+                const endTime = new Date("{{ contest.end_time }}");
+                const now = new Date();
+
+                const remainingSeconds = Math.ceil((endTime - now) / 1000);
+
+                if (remainingSeconds < 0) {
+                    return "00:00:00";
+                } else {
+                    const hours = Math.floor(remainingSeconds / 3600);
+                    const minutes = Math.floor((remainingSeconds % 3600) / 60);
+                    const seconds = remainingSeconds % 60;
+                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+            {% else %}
+                return "00:00:00";
+            {% endif %}
+        }
+        function updateClock() {
+            const clock = document.querySelector('.clock');
+            if (clock) {
+                clock.textContent = calcTime();
+            }
+        }
+        const clockInterval = setInterval(updateClock, 1000);
+    </script>
+    <script>
+        const contestName = {% if contest and contest.name %}{{ contest.name|tojson }}{% else %}""{% endif %};
+
+        function checkUpdate() {
+            if (document.querySelector('.clock').textContent === '00:00:00') {
+                location.reload();
+            }
+            fetch('/overlay-update?contest={{ contest_id }}&player={{ player }}')
+                .then(resp => resp.text())
+                .then(html => {
+                    document.getElementById('overlay-update').innerHTML = html;
+                    const updateRoot = document.createElement('div');
+                    updateRoot.innerHTML = html;
+                    const nextName = updateRoot.querySelector('.contest-name')?.textContent.trim() || '';
+                    if (contestName && nextName !== contestName) {
+                        location.reload();
+                    }
+                });
+        }
+        setInterval(checkUpdate, 10000);
+    </script>
+    <div id="overlay-update">
+        {% include 'overlay_update.html' %}
+    </div>
+    <div class="overlay-box">
+        <div class="clock">00:00:00</div>
+        <script>
+            updateClock();
+        </script>
+    </div>
+</body>
+</html>
