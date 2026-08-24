@@ -14,8 +14,8 @@ python src/app.py
 
 Then access the widget at `http://[your ip or localhost]:5000/overlay?contest=[contest_id]&player=[player_id]`.
 
-The overlay also shows the player's recent submissions when QOJ allows the
-submissions page to be read. If QOJ redirects submissions to login, pass your
+The right-hand panel shows the latest submission for each problem, sorted by
+the most recent submission. If QOJ redirects submissions to login, pass your
 browser cookie before starting the app:
 
 ```bash

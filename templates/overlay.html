@@ -20,8 +20,24 @@
             flex-direction: row;
             align-items: center;
             justify-content: flex-end;
-            width: 1280px;
             padding-bottom: 5px;
+        }
+        .overlay-content {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-end;
+            gap: 12px;
+            width: 1280px;
+        }
+        .contest-column {
+            display: flex;
+            flex: 1 1 auto;
+            min-width: 0;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .clock-box {
+            width: 1280px;
         }
         .contest-name {
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -100,14 +116,12 @@ td.success {
   background-color: rgba(224,255,224,1.000);
 }
         .submissions-box {
-            width: 1280px;
-            display: flex;
-            justify-content: flex-end;
-            padding-top: 6px;
+            flex: 0 0 390px;
+            width: 390px;
         }
         .submissions {
-            width: 860px;
-            max-height: 245px;
+            width: 366px;
+            max-height: 470px;
             overflow: hidden;
             font-family: 'Segoe UI', Arial, sans-serif;
             color: #fff;
@@ -124,12 +138,12 @@ td.success {
         }
         .submission-row {
             display: grid;
-            grid-template-columns: 58px 1fr 130px 100px 155px;
+            grid-template-columns: minmax(0, 1fr) 92px 116px;
             gap: 8px;
             align-items: center;
-            min-height: 28px;
-            font-size: 18px;
-            line-height: 22px;
+            min-height: 23px;
+            font-size: 15px;
+            line-height: 18px;
             border-top: 1px solid rgba(255,255,255,0.18);
         }
         .submission-row:first-of-type {
@@ -142,6 +156,7 @@ td.success {
         }
         .submission-result {
             font-weight: 700;
+            text-align: right;
         }
         .submission-result.accepted {
             color: #8df58d;
@@ -208,7 +223,7 @@ td.success {
     <div id="overlay-update">
         {% include 'overlay_update.html' %}
     </div>
-    <div class="overlay-box">
+    <div class="overlay-box clock-box">
         <div class="clock">00:00:00</div>
         <script>
             updateClock();

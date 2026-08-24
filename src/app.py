@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import certifi
 import cloudscraper
 import os
+import re
 import urllib3
 
 # 禁用SSL警告
@@ -54,6 +55,34 @@ def classify_submission(result):
     return 'failed'
 
 
+def find_header_index(headers, names):
+    for name in names:
+        for index, header in enumerate(headers):
+            if name in header:
+                return index
+    return None
+
+
+def submission_sort_key(submission):
+    numbers = re.findall(r'\d+', submission.get('id', ''))
+    if numbers:
+        return (1, int(numbers[-1]))
+    return (0, -submission.get('_row_order', 0))
+
+
+def latest_submission_per_problem(submissions, limit):
+    latest = {}
+    for submission in submissions:
+        problem = submission.get('problem', '').strip()
+        if not problem:
+            continue
+        key = problem.casefold()
+        previous = latest.get(key)
+        if previous is None or submission_sort_key(submission) > submission_sort_key(previous):
+            latest[key] = submission
+    return sorted(latest.values(), key=submission_sort_key, reverse=True)[:limit]
+
+
 def parse_submission_table(html):
     soup = BeautifulSoup(html, 'html.parser')
     submissions = []
@@ -65,7 +94,12 @@ def parse_submission_table(html):
         header_text = ' '.join(headers)
         if 'submit' not in header_text and 'result' not in header_text and 'score' not in header_text:
             continue
-        for row in rows[1:]:
+        id_index = find_header_index(headers, ['id', '#'])
+        problem_index = find_header_index(headers, ['problem', 'task'])
+        result_index = find_header_index(headers, ['result', 'status', 'score'])
+        time_index = find_header_index(headers, ['submit time', 'submission time', 'submitted', 'time'])
+        language_index = find_header_index(headers, ['language', 'lang'])
+        for row_order, row in enumerate(rows[1:]):
             cells = row.find_all('td')
             if len(cells) < 4:
                 continue
@@ -76,30 +110,34 @@ def parse_submission_table(html):
                 for link in cell.find_all('a', href=True)
             ]
             submission = {
-                'id': values[0],
-                'problem': values[1] if len(values) > 1 else '',
-                'result': '',
-                'time': '',
-                'language': '',
+                'id': values[id_index] if id_index is not None and id_index < len(values) else values[0],
+                'problem': values[problem_index] if problem_index is not None and problem_index < len(values) else values[1],
+                'result': values[result_index] if result_index is not None and result_index < len(values) else '',
+                'time': values[time_index] if time_index is not None and time_index < len(values) else '',
+                'language': values[language_index] if language_index is not None and language_index < len(values) else '',
                 'class': 'unknown',
                 'url': next((href for href in links if '/submission/' in href), ''),
+                '_row_order': row_order,
             }
-            for value in values:
-                lower_value = value.lower()
-                if any(word in lower_value for word in ['accepted', 'wrong answer', 'time limit', 'memory limit', 'runtime error', 'compile error', 'compiling', 'judging', 'waiting']):
-                    submission['result'] = value
-                    break
+            if not submission['result']:
+                for value in values:
+                    lower_value = value.lower()
+                    if any(word in lower_value for word in ['accepted', 'wrong answer', 'time limit', 'memory limit', 'runtime error', 'compile error', 'compiling', 'judging', 'waiting']):
+                        submission['result'] = value
+                        break
             if not submission['result'] and len(values) >= 3:
                 submission['result'] = values[2]
-            for value in reversed(values):
-                if ':' in value or '-' in value:
-                    submission['time'] = value
-                    break
-            for value in values:
-                lower_value = value.lower()
-                if any(lang in lower_value for lang in ['c++', 'python', 'java', 'rust', 'go', 'kotlin', 'c#']):
-                    submission['language'] = value
-                    break
+            if not submission['time']:
+                for value in reversed(values):
+                    if ':' in value or '-' in value:
+                        submission['time'] = value
+                        break
+            if not submission['language']:
+                for value in values:
+                    lower_value = value.lower()
+                    if any(lang in lower_value for lang in ['c++', 'python', 'java', 'rust', 'go', 'kotlin', 'c#']):
+                        submission['language'] = value
+                        break
             submission['class'] = classify_submission(submission['result'])
             submissions.append(submission)
     return submissions
@@ -126,7 +164,7 @@ def get_submissions(contestid, player, limit=18):
         submissions = parse_submission_table(response.text)
         if submissions:
             return {
-                'items': submissions[:limit],
+                'items': latest_submission_per_problem(submissions, limit),
                 'source': url,
             }
     return {
