@@ -46,7 +46,7 @@ def get_cell_text(cell):
 
 def classify_submission(result):
     lower_result = result.lower()
-    if 'accepted' in lower_result or lower_result == 'ac':
+    if 'accepted' in lower_result or re.search(r'\bac\b', lower_result):
         return 'accepted'
     if 'compiling' in lower_result or 'judging' in lower_result or 'waiting' in lower_result:
         return 'pending'
