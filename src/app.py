@@ -70,17 +70,30 @@ def submission_sort_key(submission):
     return (0, -submission.get('_row_order', 0))
 
 
-def latest_submission_per_problem(submissions, limit):
-    latest = {}
+def display_submission_per_problem(submissions, limit):
+    selected = {}
     for submission in submissions:
         problem = submission.get('problem', '').strip()
         if not problem:
             continue
         key = problem.casefold()
-        previous = latest.get(key)
-        if previous is None or submission_sort_key(submission) > submission_sort_key(previous):
-            latest[key] = submission
-    return sorted(latest.values(), key=submission_sort_key, reverse=True)[:limit]
+        previous = selected.get(key)
+        if previous is None:
+            selected[key] = submission
+            continue
+
+        is_accepted = submission.get('class') == 'accepted'
+        was_accepted = previous.get('class') == 'accepted'
+        if is_accepted and not was_accepted:
+            selected[key] = submission
+        elif is_accepted and was_accepted:
+            if submission_sort_key(submission) < submission_sort_key(previous):
+                selected[key] = submission
+        elif not was_accepted:
+            if submission_sort_key(submission) > submission_sort_key(previous):
+                selected[key] = submission
+
+    return sorted(selected.values(), key=submission_sort_key, reverse=True)[:limit]
 
 
 def parse_submission_table(html):
@@ -164,7 +177,7 @@ def get_submissions(contestid, player, limit=18):
         submissions = parse_submission_table(response.text)
         if submissions:
             return {
-                'items': latest_submission_per_problem(submissions, limit),
+                'items': display_submission_per_problem(submissions, limit),
                 'source': url,
             }
     return {
