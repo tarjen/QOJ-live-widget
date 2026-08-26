@@ -14,10 +14,11 @@ python src/app.py
 
 Then access the widget at `http://[your ip or localhost]:5000/overlay?contest=[contest_id]&player=[player_id]`.
 
-The right-hand panel shows the latest submission for an unsolved problem. Once
-a problem is accepted, its first accepted submission is kept instead. The
-selected submissions are sorted from newest to oldest. If QOJ redirects
-submissions to login, pass your browser cookie before starting the app:
+The compact panel below the standings shows contest-relative submission times.
+Each problem keeps its latest submission until accepted, then keeps its first
+accepted submission. `+x` means accepted in `x` attempts and `-x` means not
+accepted after `x` attempts. If QOJ redirects submissions to login, pass your
+browser cookie before starting the app:
 
 ```bash
 $env:QOJ_COOKIE="key=value; another_key=another_value"

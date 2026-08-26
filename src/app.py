@@ -18,6 +18,7 @@ session = cloudscraper.create_scraper(browser={
 })
 session.verify = certifi.where()
 app = Flask(__name__, template_folder='../templates')
+contest_problem_id_cache = {}
 
 
 def load_qoj_cookie():
@@ -70,30 +71,99 @@ def submission_sort_key(submission):
     return (0, -submission.get('_row_order', 0))
 
 
+def parse_submission_time(value):
+    for time_format in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M'):
+        try:
+            return datetime.strptime(value, time_format)
+        except ValueError:
+            continue
+    return None
+
+
+def filter_contest_submissions(submissions, problem_ids, start_time, end_time):
+    start = parse_submission_time(start_time)
+    end = parse_submission_time(end_time)
+    filtered = []
+    for submission in submissions:
+        if problem_ids and submission.get('problem_id') not in problem_ids:
+            continue
+        submitted_at = parse_submission_time(submission.get('time', ''))
+        if start and end:
+            if submitted_at is None or not start <= submitted_at <= end:
+                continue
+            elapsed_seconds = int((submitted_at - start).total_seconds())
+            hours, remainder = divmod(elapsed_seconds, 3600)
+            minutes = remainder // 60
+            submission['contest_time'] = f'{hours}:{minutes:02d}'
+        else:
+            submission['contest_time'] = submission.get('time', '')
+        filtered.append(submission)
+    return filtered
+
+
+def infer_contest_start(submissions, problems):
+    elapsed_by_problem = {
+        problem.get('id'): problem.get('contest_time')
+        for problem in problems
+        if problem.get('id') and problem.get('contest_time')
+    }
+    candidates = []
+    for submission in submissions:
+        if submission.get('class') != 'accepted':
+            continue
+        elapsed = elapsed_by_problem.get(submission.get('problem_id'))
+        submitted_at = parse_submission_time(submission.get('time', ''))
+        match = re.fullmatch(r'(\d+):(\d{2})', elapsed or '')
+        if submitted_at is None or match is None:
+            continue
+        candidates.append(
+            submitted_at - timedelta(
+                hours=int(match.group(1)),
+                minutes=int(match.group(2)),
+            )
+        )
+    if not candidates:
+        return None
+
+    candidates.sort()
+    best_cluster = []
+    for left, start in enumerate(candidates):
+        cluster = []
+        for candidate in candidates[left:]:
+            if candidate - start > timedelta(minutes=2):
+                break
+            cluster.append(candidate)
+        if len(cluster) > len(best_cluster) or (
+            len(cluster) == len(best_cluster) and cluster[-1] > best_cluster[-1]
+        ):
+            best_cluster = cluster
+    midpoint = best_cluster[len(best_cluster) // 2]
+    return midpoint.replace(second=0, microsecond=0)
+
+
 def display_submission_per_problem(submissions, limit):
-    selected = {}
+    grouped = {}
     for submission in submissions:
         problem = submission.get('problem', '').strip()
         if not problem:
             continue
         key = problem.casefold()
-        previous = selected.get(key)
-        if previous is None:
-            selected[key] = submission
-            continue
+        grouped.setdefault(key, []).append(submission)
 
-        is_accepted = submission.get('class') == 'accepted'
-        was_accepted = previous.get('class') == 'accepted'
-        if is_accepted and not was_accepted:
-            selected[key] = submission
-        elif is_accepted and was_accepted:
-            if submission_sort_key(submission) < submission_sort_key(previous):
-                selected[key] = submission
-        elif not was_accepted:
-            if submission_sort_key(submission) > submission_sort_key(previous):
-                selected[key] = submission
+    selected = []
+    for attempts in grouped.values():
+        attempts.sort(key=submission_sort_key)
+        first_accepted = next(
+            (submission for submission in attempts if submission.get('class') == 'accepted'),
+            None,
+        )
+        chosen = first_accepted or attempts[-1]
+        attempt_count = attempts.index(chosen) + 1 if first_accepted else len(attempts)
+        chosen['attempts'] = attempt_count
+        chosen['marker'] = f'+{attempt_count}' if first_accepted else f'-{attempt_count}'
+        selected.append(chosen)
 
-    return sorted(selected.values(), key=submission_sort_key, reverse=True)[:limit]
+    return sorted(selected, key=submission_sort_key, reverse=True)[:limit]
 
 
 def parse_submission_table(html):
@@ -132,6 +202,11 @@ def parse_submission_table(html):
                 'url': next((href for href in links if '/submission/' in href), ''),
                 '_row_order': row_order,
             }
+            problem_link = next((href for href in links if '/problem/' in href), '')
+            problem_match = re.search(r'/problem/(\d+)', problem_link)
+            if problem_match is None:
+                problem_match = re.match(r'#?(\d+)', submission['problem'])
+            submission['problem_id'] = problem_match.group(1) if problem_match else ''
             if not submission['result']:
                 for value in values:
                     lower_value = value.lower()
@@ -156,30 +231,81 @@ def parse_submission_table(html):
     return submissions
 
 
-def get_submissions(contestid, player, limit=18):
-    urls = [
-        f'https://qoj.ac/contest/{contestid}/submissions?submitter={player}',
-        f'https://qoj.ac/submissions?contest=QOJ{contestid}&submitter={player}',
-        f'https://qoj.ac/submissions?contest_id={contestid}&submitter={player}',
-        f'https://qoj.ac/submissions?submitter={player}',
-    ]
-    for url in urls:
+def get_contest_problem_ids(contestid):
+    if contestid in contest_problem_id_cache:
+        return contest_problem_id_cache[contestid]
+    try:
+        response = session.get(f'https://qoj.ac/contest/{contestid}', timeout=20)
+        response.raise_for_status()
+    except Exception:
+        return []
+    soup = BeautifulSoup(response.text, 'html.parser')
+    problem_ids = []
+    pattern = re.compile(rf'/contest/{re.escape(str(contestid))}/problem/(\d+)')
+    for link in soup.find_all('a', href=True):
+        match = pattern.search(link.get('href', ''))
+        if match and match.group(1) not in problem_ids:
+            problem_ids.append(match.group(1))
+    if problem_ids:
+        contest_problem_id_cache[contestid] = problem_ids
+    return problem_ids
+
+
+def get_submissions(
+    contestid,
+    player,
+    problems=None,
+    start_time='',
+    end_time='',
+    limit=18,
+):
+    problem_ids = {problem['id'] for problem in problems or [] if problem.get('id')}
+    url = f'https://qoj.ac/submissions?submitter={player}'
+    submissions = []
+    for page in range(1, 6):
         try:
-            response = session.get(url, timeout=20)
+            response = session.get(f'{url}&page={page}', timeout=20)
             response.raise_for_status()
         except Exception:
-            continue
+            break
         if is_login_page(response):
             return {
                 'error': 'Submissions require QOJ login cookie',
                 'items': [],
             }
-        submissions = parse_submission_table(response.text)
-        if submissions:
-            return {
-                'items': display_submission_per_problem(submissions, limit),
-                'source': url,
-            }
+        page_submissions = parse_submission_table(response.text)
+        if not page_submissions:
+            break
+        if problem_ids:
+            page_submissions = [
+                submission
+                for submission in page_submissions
+                if submission.get('problem_id') in problem_ids
+            ]
+        if not page_submissions and submissions:
+            break
+        submissions.extend(page_submissions)
+
+    if submissions:
+        start = parse_submission_time(start_time)
+        if start is None:
+            start = infer_contest_start(submissions, problems or [])
+        if start is not None:
+            start_time = start.strftime('%Y-%m-%d %H:%M:%S')
+            end_time = (start + timedelta(hours=5)).strftime('%Y-%m-%d %H:%M:%S')
+        submissions = filter_contest_submissions(
+            submissions,
+            problem_ids,
+            start_time,
+            end_time,
+        )
+    if submissions:
+        return {
+            'items': display_submission_per_problem(submissions, limit),
+            'source': url,
+            'start_time': start_time,
+            'end_time': end_time,
+        }
     return {
         'items': [],
         'error': 'No submissions found',
@@ -220,6 +346,7 @@ def get_contest_info(contestid, player):
             contest['end_time'] = end_time.strftime('%Y-%m-%d %H:%M:%S')
 
     headers = soup.find_all('th')
+    contest_problem_ids = get_contest_problem_ids(contestid)
     mystanding = soup.find('tr', class_='solver')
     player_key = player.strip().lower()
     if mystanding is None and player_key:
@@ -245,9 +372,17 @@ def get_contest_info(contestid, player):
             problem_index = headers[i].get_text(' ', strip=True).split()[0]
             mystatus = myrow[i].get('class', ['stnd'])[0]
             mytag = myrow[i].get_text(' ', strip=True)
+            contest_time_match = re.search(r'(\d+):(\d{2})', mytag)
+            problem_position = i - 2
             problems.append(
                 {
                     'index': problem_index,
+                    'id': contest_problem_ids[problem_position]
+                    if problem_position < len(contest_problem_ids)
+                    else '',
+                    'contest_time': contest_time_match.group(0)
+                    if contest_time_match
+                    else '',
                     'status': mystatus,
                     'tag': mytag
                 }
@@ -261,7 +396,16 @@ def get_contest_info(contestid, player):
         contest['penalty'] = penalty
     elif contest.get('name'):
         contest['error'] = f'Player "{player}" was not found in this standings page'
-    contest['submissions'] = get_submissions(contestid, player)
+    contest['submissions'] = get_submissions(
+        contestid,
+        player,
+        problems=contest['problems'],
+        start_time=contest.get('start_time', ''),
+        end_time=contest.get('end_time', ''),
+    )
+    if contest['submissions'].get('start_time'):
+        contest['start_time'] = contest['submissions']['start_time']
+        contest['end_time'] = contest['submissions']['end_time']
     return contest
 
 @app.route('/overlay', methods=['GET'])

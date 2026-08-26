@@ -7,8 +7,9 @@
                 <div class="contest-name">No Contest Selected</div>
             {% endif %}
         </div>
-        <div class="overlay-box">
+        <div class="overlay-box standings-row">
             {% if contest and contest.problems %}
+            <div class="clock">00:00:00</div>
             <table>
                 <tr>
                     <td class="rank">#{{ contest.rank }}</td>
@@ -28,27 +29,17 @@
     </div>
     <div class="submissions-box">
         <div class="submissions">
-            <div class="submissions-title">Submission by problem</div>
             {% if contest and contest.submissions and contest.submissions['items'] %}
                 {% for submission in contest.submissions['items'] %}
                 <div class="submission-row">
-                    <div class="submission-cell" title="{{ submission.problem }}">{{ submission.problem }}</div>
-                    <div class="submission-cell" title="{{ submission.time }}">{{ submission.time }}</div>
-                    <div class="submission-cell submission-result {{ submission.class }}" title="{{ submission.result }}">{{ submission.result }}</div>
+                    <div class="submission-cell">{{ submission.contest_time }}</div>
+                    <div class="submission-cell submission-result {{ submission.class }}">{{ submission.marker }}</div>
                 </div>
                 {% endfor %}
             {% elif contest and contest.submissions and contest.submissions.error %}
-                <div class="submission-row">
-                    <div class="submission-cell">{{ contest.submissions.error }}</div>
-                    <div class="submission-cell"></div>
-                    <div class="submission-cell"></div>
-                </div>
+                <div class="submission-empty">{{ contest.submissions.error }}</div>
             {% else %}
-                <div class="submission-row">
-                    <div class="submission-cell">Waiting for submissions</div>
-                    <div class="submission-cell"></div>
-                    <div class="submission-cell"></div>
-                </div>
+                <div class="submission-empty">Waiting for submissions</div>
             {% endif %}
         </div>
     </div>

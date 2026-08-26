@@ -37,9 +37,6 @@
             flex-direction: column;
             align-items: flex-end;
         }
-        .clock-box {
-            width: 1280px;
-        }
         .contest-name {
             font-family: 'Segoe UI', Arial, sans-serif;
             font-size: 32px;
@@ -58,13 +55,14 @@
         }
         .clock {
             font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 32px;
+            font-size: 28px;
             color: #fff;
             background: rgba(0,0,0,0.9);
             border-radius: 10px;
-            padding: 10px 20px;
-            margin-left: 24px;
+            padding: 6px 14px;
+            margin-right: 6px;
             text-align: center;
+            border: 2px solid rgba(255,255,255,0.8);
         }
         .status-message {
             max-width: 1180px;
@@ -117,10 +115,10 @@ td.success {
   background-color: rgba(224,255,224,1.000);
 }
         .submissions-box {
-            width: 860px;
+            width: 145px;
         }
         .submissions {
-            width: 836px;
+            width: 125px;
             max-height: 300px;
             overflow: hidden;
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -128,17 +126,11 @@ td.success {
             background: rgba(0,0,0,0.88);
             border: 2px solid rgba(255,255,255,0.8);
             border-radius: 10px;
-            padding: 8px 10px;
-        }
-        .submissions-title {
-            font-size: 20px;
-            line-height: 24px;
-            font-weight: 700;
-            margin-bottom: 5px;
+            padding: 6px 8px;
         }
         .submission-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 170px 116px;
+            grid-template-columns: minmax(0, 1fr) 38px;
             gap: 8px;
             align-items: center;
             min-height: 23px;
@@ -157,6 +149,13 @@ td.success {
         .submission-result {
             font-weight: 700;
             text-align: right;
+        }
+        .submission-empty {
+            overflow: hidden;
+            font-size: 13px;
+            line-height: 18px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .submission-result.accepted {
             color: #8df58d;
@@ -203,7 +202,8 @@ td.success {
         const contestName = {% if contest and contest.name %}{{ contest.name|tojson }}{% else %}""{% endif %};
 
         function checkUpdate() {
-            if (document.querySelector('.clock').textContent === '00:00:00') {
+            const clock = document.querySelector('.clock');
+            if (clock && clock.textContent === '00:00:00') {
                 location.reload();
             }
             fetch('/overlay-update?contest={{ contest_id }}&player={{ player }}')
@@ -223,11 +223,8 @@ td.success {
     <div id="overlay-update">
         {% include 'overlay_update.html' %}
     </div>
-    <div class="overlay-box clock-box">
-        <div class="clock">00:00:00</div>
-        <script>
-            updateClock();
-        </script>
-    </div>
+    <script>
+        updateClock();
+    </script>
 </body>
 </html>
