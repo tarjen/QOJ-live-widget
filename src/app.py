@@ -300,8 +300,16 @@ def get_submissions(
             end_time,
         )
     if submissions:
+        problem_index_by_id = {
+            problem['id']: problem['index']
+            for problem in problems or []
+            if problem.get('id') and problem.get('index')
+        }
+        items = display_submission_per_problem(submissions, limit)
+        for item in items:
+            item['problem_index'] = problem_index_by_id.get(item.get('problem_id'), '')
         return {
-            'items': display_submission_per_problem(submissions, limit),
+            'items': items,
             'source': url,
             'start_time': start_time,
             'end_time': end_time,

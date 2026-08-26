@@ -32,6 +32,7 @@
             {% if contest and contest.submissions and contest.submissions['items'] %}
                 {% for submission in contest.submissions['items'] %}
                 <div class="submission-row">
+                    <div class="submission-cell submission-problem">{{ submission.problem_index }}</div>
                     <div class="submission-cell">{{ submission.contest_time }}</div>
                     <div class="submission-cell submission-result {{ submission.class }}">{{ submission.marker }}</div>
                 </div>
